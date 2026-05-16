@@ -613,7 +613,7 @@ function App() {
             <FullscreenButton label="main clock" targetId="widget-main-clock" />
           </div>
           <div className="hero-copy">
-            <span className="eyebrow">Public time tools</span>
+            <span className="eyebrow">My Time</span>
             <h1>{formatClockTime(now, preferences.format, preferences.showSeconds)}</h1>
             <p>{formatDate(now)}</p>
           </div>
