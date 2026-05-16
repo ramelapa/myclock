@@ -1,4 +1,5 @@
 export type TimeFormat = "12" | "24";
+export type FontId = "system" | "serif" | "rounded" | "mono" | "readable";
 export type ThemeId =
   | "classic"
   | "midnight"
@@ -13,6 +14,7 @@ export type TabId = "clock" | "alarm" | "timer" | "stopwatch" | "world";
 export interface Preferences {
   format: TimeFormat;
   theme: ThemeId;
+  font: FontId;
   showSeconds: boolean;
   tone: ToneName;
 }
@@ -44,5 +46,7 @@ export interface StopwatchState {
 export interface WorldClockItem {
   id: string;
   label: string;
+  country: string;
+  continent: string;
   timeZone: string;
 }

@@ -8,7 +8,9 @@ A public-facing clock app with the core tools people expect from online clock si
 - Multiple saved alarms with labels, repeat, snooze, browser notifications, and alert tones
 - Countdown timer with presets, custom durations, progress ring, and completion alerts
 - Stopwatch with lap and split tracking
-- World clocks for major cities and time zones
+- World clocks for cities across every continent, with typeahead city search
+- Fullscreen mode for clock, alarm, timer, stopwatch, world clock, theme, and insight widgets
+- Settings side menu for font, theme, time format, seconds, tone, and notifications
 - Mood and age-group themes: Classic, Midnight, Sunrise, Playful, Neon, and High Contrast
 - AdSense-ready placements for top banner, in-page, and sidebar inventory
 - Local persistence with `localStorage`

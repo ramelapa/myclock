@@ -6,11 +6,15 @@ import {
   Clock3,
   Flag,
   Globe2,
+  Maximize2,
   Palette,
   Pause,
   Play,
   Plus,
   RotateCcw,
+  Search,
+  Settings,
+  SlidersHorizontal,
   Sparkles,
   Square,
   TimerReset,
@@ -18,8 +22,10 @@ import {
   UsersRound,
   Volume2,
   WandSparkles,
+  X,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { useLocalStorage } from "./hooks/useLocalStorage";
 import { ensureNotificationPermission, notify, playTone } from "./lib/alerts";
 import {
@@ -37,6 +43,7 @@ import {
 } from "./lib/time";
 import {
   AlarmItem,
+  FontId,
   Preferences,
   StopwatchState,
   TabId,
@@ -52,6 +59,12 @@ type ThemePreset = {
   ageGroup: string;
   description: string;
   swatches: string[];
+};
+
+type FontOption = {
+  id: FontId;
+  label: string;
+  description: string;
 };
 
 type AdPlacement = "top" | "inline" | "rail";
@@ -114,9 +127,38 @@ const themePresets: ThemePreset[] = [
   },
 ];
 
+const fontOptions: FontOption[] = [
+  {
+    id: "system",
+    label: "System",
+    description: "Native interface font for general use.",
+  },
+  {
+    id: "serif",
+    label: "Serif",
+    description: "Editorial numerals and warmer long-form labels.",
+  },
+  {
+    id: "rounded",
+    label: "Rounded",
+    description: "Softer letterforms for kids and casual use.",
+  },
+  {
+    id: "mono",
+    label: "Mono",
+    description: "Fixed-width timing for stopwatch-heavy workflows.",
+  },
+  {
+    id: "readable",
+    label: "Readable",
+    description: "Wide, high-legibility text for quick scanning.",
+  },
+];
+
 const defaultPreferences: Preferences = {
   format: "12",
   theme: "classic",
+  font: "system",
   showSeconds: true,
   tone: "classic",
 };
@@ -148,6 +190,18 @@ const timerPresets = [
   { label: "1h", seconds: 60 * 60 },
 ];
 
+const defaultCitySuggestionIds = [
+  "new-york",
+  "london",
+  "tokyo",
+  "dubai",
+  "lagos",
+  "sao-paulo",
+  "sydney",
+  "auckland",
+  "mcmurdo",
+];
+
 const tabs: Array<{ id: TabId; label: string; icon: typeof Clock3 }> = [
   { id: "clock", label: "Clock", icon: Clock3 },
   { id: "alarm", label: "Alarm", icon: AlarmClock },
@@ -175,7 +229,8 @@ function App() {
   );
   const [alarmTime, setAlarmTime] = useState(() => nextHourValue());
   const [alarmLabel, setAlarmLabel] = useState("Wake up");
-  const [cityToAdd, setCityToAdd] = useState(cityOptions[0].id);
+  const [cityQuery, setCityQuery] = useState("");
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [notificationState, setNotificationState] = useState(() =>
     "Notification" in window ? Notification.permission : "unsupported"
   );
@@ -184,6 +239,9 @@ function App() {
   const currentThemeId = normalizeTheme(preferences.theme);
   const currentTheme =
     themePresets.find((theme) => theme.id === currentThemeId) ?? themePresets[0];
+  const currentFontId = normalizeFont(preferences.font);
+  const cityMatches = useMemo(() => getCityMatches(cityQuery), [cityQuery]);
+  const selectedCity = useMemo(() => findCityFromQuery(cityQuery), [cityQuery]);
 
   useAdsenseScript(adsenseClientId);
 
@@ -197,12 +255,20 @@ function App() {
   }, [currentThemeId]);
 
   useEffect(() => {
-    if (preferences.theme === currentThemeId) {
+    document.documentElement.dataset.font = currentFontId;
+  }, [currentFontId]);
+
+  useEffect(() => {
+    if (preferences.theme === currentThemeId && preferences.font === currentFontId) {
       return;
     }
 
-    setPreferences((current) => ({ ...current, theme: currentThemeId }));
-  }, [currentThemeId, preferences.theme, setPreferences]);
+    setPreferences((current) => ({
+      ...current,
+      theme: currentThemeId,
+      font: currentFontId,
+    }));
+  }, [currentFontId, currentThemeId, preferences.font, preferences.theme, setPreferences]);
 
   const displayedTimerSeconds = useMemo(() => {
     if (!timer.running || !timer.endsAt) {
@@ -439,7 +505,7 @@ function App() {
   }
 
   function addWorldClock(city?: WorldClockItem) {
-    const selected = city ?? cityOptions.find((option) => option.id === cityToAdd);
+    const selected = city ?? selectedCity ?? cityMatches[0];
 
     if (!selected) {
       return;
@@ -450,6 +516,7 @@ function App() {
         ? current
         : [...current, selected].sort((a, b) => a.label.localeCompare(b.label))
     );
+    setCityQuery("");
   }
 
   function removeWorldClock(id: string) {
@@ -458,6 +525,10 @@ function App() {
 
   function selectTheme(theme: ThemeId) {
     setPreferences((current) => ({ ...current, theme }));
+  }
+
+  function selectFont(font: FontId) {
+    setPreferences((current) => ({ ...current, font }));
   }
 
   function cycleTheme() {
@@ -506,6 +577,15 @@ function App() {
           >
             <Palette size={18} aria-hidden="true" />
           </button>
+          <button
+            className="icon-button"
+            type="button"
+            aria-label="Open settings"
+            title="Settings"
+            onClick={() => setSettingsOpen(true)}
+          >
+            <Settings size={18} aria-hidden="true" />
+          </button>
         </div>
       </header>
 
@@ -528,7 +608,10 @@ function App() {
       </nav>
 
       <main className="app-main">
-        <section className="hero-band">
+        <section className="hero-band fullscreenable" id="widget-main-clock">
+          <div className="hero-actions">
+            <FullscreenButton label="main clock" targetId="widget-main-clock" />
+          </div>
           <div className="hero-copy">
             <span className="eyebrow">Public time tools</span>
             <h1>{formatClockTime(now, preferences.format, preferences.showSeconds)}</h1>
@@ -555,13 +638,15 @@ function App() {
 
         {activeTab === "clock" && (
           <section className="tool-grid">
-            <article className="panel wide">
+            <article className="panel wide fullscreenable" id="widget-clock-display">
               <div className="panel-heading">
                 <div>
                   <span className="section-kicker">Clock</span>
                   <h2>Display</h2>
                 </div>
-                <Clock3 size={22} aria-hidden="true" />
+                <WidgetTools label="clock display" targetId="widget-clock-display">
+                  <Clock3 size={22} aria-hidden="true" />
+                </WidgetTools>
               </div>
 
               <div className="display-stack">
@@ -649,13 +734,15 @@ function App() {
             </article>
 
             <div className="side-stack">
-              <article className="panel">
+              <article className="panel fullscreenable" id="widget-theme-studio">
                 <div className="panel-heading">
                   <div>
                     <span className="section-kicker">Themes</span>
                     <h2>Theme Studio</h2>
                   </div>
-                  <Sparkles size={22} aria-hidden="true" />
+                  <WidgetTools label="theme studio" targetId="widget-theme-studio">
+                    <Sparkles size={22} aria-hidden="true" />
+                  </WidgetTools>
                 </div>
 
                 <div className="theme-grid">
@@ -690,13 +777,15 @@ function App() {
                 </div>
               </article>
 
-              <article className="panel">
+              <article className="panel fullscreenable" id="widget-time-anchor">
                 <div className="panel-heading">
                   <div>
                     <span className="section-kicker">Signals</span>
                     <h2>Time Anchor</h2>
                   </div>
-                  <WandSparkles size={22} aria-hidden="true" />
+                  <WidgetTools label="time anchor" targetId="widget-time-anchor">
+                    <WandSparkles size={22} aria-hidden="true" />
+                  </WidgetTools>
                 </div>
                 <div className="insight-list">
                   {clockInsights.map((insight) => (
@@ -718,13 +807,15 @@ function App() {
 
         {activeTab === "alarm" && (
           <section className="tool-grid">
-            <article className="panel">
+            <article className="panel fullscreenable" id="widget-new-alarm">
               <div className="panel-heading">
                 <div>
                   <span className="section-kicker">Alarm</span>
                   <h2>New Alarm</h2>
                 </div>
-                <AlarmClock size={22} aria-hidden="true" />
+                <WidgetTools label="new alarm" targetId="widget-new-alarm">
+                  <AlarmClock size={22} aria-hidden="true" />
+                </WidgetTools>
               </div>
 
               <div className="stack-form">
@@ -751,13 +842,15 @@ function App() {
               </div>
             </article>
 
-            <article className="panel wide">
+            <article className="panel wide fullscreenable" id="widget-alarm-list">
               <div className="panel-heading">
                 <div>
                   <span className="section-kicker">{alarms.length} saved</span>
                   <h2>Alarms</h2>
                 </div>
-                <Bell size={22} aria-hidden="true" />
+                <WidgetTools label="alarms" targetId="widget-alarm-list">
+                  <Bell size={22} aria-hidden="true" />
+                </WidgetTools>
               </div>
 
               <div className="list">
@@ -809,13 +902,15 @@ function App() {
 
         {activeTab === "timer" && (
           <section className="tool-grid">
-            <article className="panel wide">
+            <article className="panel wide fullscreenable" id="widget-timer">
               <div className="panel-heading">
                 <div>
                   <span className="section-kicker">Timer</span>
                   <h2>{timer.label}</h2>
                 </div>
-                <TimerReset size={22} aria-hidden="true" />
+                <WidgetTools label="timer" targetId="widget-timer">
+                  <TimerReset size={22} aria-hidden="true" />
+                </WidgetTools>
               </div>
 
               <div className="timer-display">
@@ -846,13 +941,15 @@ function App() {
               </div>
             </article>
 
-            <article className="panel">
+            <article className="panel fullscreenable" id="widget-timer-presets">
               <div className="panel-heading">
                 <div>
                   <span className="section-kicker">Duration</span>
                   <h2>Preset</h2>
                 </div>
-                <WandSparkles size={22} aria-hidden="true" />
+                <WidgetTools label="timer presets" targetId="widget-timer-presets">
+                  <WandSparkles size={22} aria-hidden="true" />
+                </WidgetTools>
               </div>
 
               <label className="field">
@@ -924,13 +1021,15 @@ function App() {
 
         {activeTab === "stopwatch" && (
           <section className="tool-grid">
-            <article className="panel">
+            <article className="panel fullscreenable" id="widget-stopwatch">
               <div className="panel-heading">
                 <div>
                   <span className="section-kicker">Stopwatch</span>
                   <h2>Elapsed</h2>
                 </div>
-                <Flag size={22} aria-hidden="true" />
+                <WidgetTools label="stopwatch" targetId="widget-stopwatch">
+                  <Flag size={22} aria-hidden="true" />
+                </WidgetTools>
               </div>
 
               <time className="stopwatch-time">{formatStopwatch(stopwatchMs)}</time>
@@ -957,13 +1056,15 @@ function App() {
               </div>
             </article>
 
-            <article className="panel wide">
+            <article className="panel wide fullscreenable" id="widget-stopwatch-laps">
               <div className="panel-heading">
                 <div>
                   <span className="section-kicker">{stopwatch.laps.length} marks</span>
                   <h2>Laps</h2>
                 </div>
-                <Clock3 size={22} aria-hidden="true" />
+                <WidgetTools label="stopwatch laps" targetId="widget-stopwatch-laps">
+                  <Clock3 size={22} aria-hidden="true" />
+                </WidgetTools>
               </div>
               <div className="list">
                 {stopwatch.laps.length === 0 && <p className="empty">No laps recorded.</p>}
@@ -987,42 +1088,69 @@ function App() {
 
         {activeTab === "world" && (
           <section className="tool-grid">
-            <article className="panel">
+            <article className="panel fullscreenable" id="widget-add-city">
               <div className="panel-heading">
                 <div>
                   <span className="section-kicker">World</span>
                   <h2>Add City</h2>
                 </div>
-                <Globe2 size={22} aria-hidden="true" />
+                <WidgetTools label="add city" targetId="widget-add-city">
+                  <Globe2 size={22} aria-hidden="true" />
+                </WidgetTools>
               </div>
               <div className="stack-form">
                 <label className="field">
-                  <span>City</span>
-                  <select
-                    value={cityToAdd}
-                    onChange={(event) => setCityToAdd(event.target.value)}
-                  >
+                  <span>City search</span>
+                  <div className="typeahead-field">
+                    <Search size={17} aria-hidden="true" />
+                    <input
+                      list="city-options"
+                      placeholder="Search city, country, continent"
+                      value={cityQuery}
+                      onChange={(event) => setCityQuery(event.target.value)}
+                    />
+                  </div>
+                  <datalist id="city-options">
                     {cityOptions.map((city) => (
-                      <option key={city.id} value={city.id}>
-                        {city.label}
-                      </option>
+                      <option key={city.id} value={formatCityOption(city)} />
                     ))}
-                  </select>
+                  </datalist>
                 </label>
-                <button className="primary-button" type="button" onClick={() => addWorldClock()}>
+                <div className="city-suggestions" aria-label="City suggestions">
+                  {cityMatches.map((city) => (
+                    <button
+                      className="city-chip"
+                      key={city.id}
+                      type="button"
+                      onClick={() => addWorldClock(city)}
+                    >
+                      <strong>{city.label}</strong>
+                      <span>
+                        {city.country} - {city.continent}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                <button
+                  className="primary-button"
+                  type="button"
+                  onClick={() => addWorldClock()}
+                >
                   <Plus size={18} />
-                  <span>Add city</span>
+                  <span>{selectedCity ? `Add ${selectedCity.label}` : "Add city"}</span>
                 </button>
               </div>
             </article>
 
-            <article className="panel wide">
+            <article className="panel wide fullscreenable" id="widget-world-clocks">
               <div className="panel-heading">
                 <div>
                   <span className="section-kicker">{worldClocks.length} cities</span>
                   <h2>World Clocks</h2>
                 </div>
-                <Globe2 size={22} aria-hidden="true" />
+                <WidgetTools label="world clocks" targetId="widget-world-clocks">
+                  <Globe2 size={22} aria-hidden="true" />
+                </WidgetTools>
               </div>
               <div className="clock-grid">
                 {worldClocks.map((clock) => (
@@ -1040,6 +1168,9 @@ function App() {
                       )}
                     </time>
                     <small>{formatDate(now, clock.timeZone)}</small>
+                    <small>
+                      {clock.country ?? "Saved city"} - {clock.continent ?? clock.timeZone}
+                    </small>
                     <button
                       className="icon-button danger"
                       type="button"
@@ -1058,7 +1189,162 @@ function App() {
 
         <AdUnit placement="inline" title="In-page ad" />
       </main>
+
+      <div
+        className={settingsOpen ? "settings-backdrop open" : "settings-backdrop"}
+        onClick={() => setSettingsOpen(false)}
+      />
+      <aside
+        className={settingsOpen ? "settings-drawer open" : "settings-drawer"}
+        aria-hidden={!settingsOpen}
+        aria-label="Settings"
+      >
+        <div className="settings-header">
+          <div>
+            <span className="section-kicker">Preferences</span>
+            <h2>Settings</h2>
+          </div>
+          <button
+            className="icon-button"
+            type="button"
+            aria-label="Close settings"
+            title="Close settings"
+            onClick={() => setSettingsOpen(false)}
+          >
+            <X size={18} aria-hidden="true" />
+          </button>
+        </div>
+
+        <div className="settings-section">
+          <div className="settings-section-title">
+            <SlidersHorizontal size={18} aria-hidden="true" />
+            <h3>Display</h3>
+          </div>
+          <label className="field">
+            <span>Font</span>
+            <select
+              value={currentFontId}
+              onChange={(event) => selectFont(event.target.value as FontId)}
+            >
+              {fontOptions.map((font) => (
+                <option key={font.id} value={font.id}>
+                  {font.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p className="settings-hint">
+            {fontOptions.find((font) => font.id === currentFontId)?.description}
+          </p>
+
+          <label className="field">
+            <span>Theme</span>
+            <select
+              value={currentThemeId}
+              onChange={(event) => selectTheme(event.target.value as ThemeId)}
+            >
+              {themePresets.map((theme) => (
+                <option key={theme.id} value={theme.id}>
+                  {theme.label} - {theme.ageGroup}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="field">
+            <span>Time format</span>
+            <select
+              value={preferences.format}
+              onChange={(event) =>
+                setPreferences((current) => ({
+                  ...current,
+                  format: event.target.value as Preferences["format"],
+                }))
+              }
+            >
+              <option value="12">12-hour</option>
+              <option value="24">24-hour</option>
+            </select>
+          </label>
+
+          <label className="field checkbox-field">
+            <input
+              type="checkbox"
+              checked={preferences.showSeconds}
+              onChange={(event) =>
+                setPreferences((current) => ({
+                  ...current,
+                  showSeconds: event.target.checked,
+                }))
+              }
+            />
+            <span>Show seconds</span>
+          </label>
+        </div>
+
+        <div className="settings-section">
+          <div className="settings-section-title">
+            <Volume2 size={18} aria-hidden="true" />
+            <h3>Alerts</h3>
+          </div>
+          <label className="field">
+            <span>Tone</span>
+            <select
+              value={preferences.tone}
+              onChange={(event) =>
+                setPreferences((current) => ({
+                  ...current,
+                  tone: event.target.value as Preferences["tone"],
+                }))
+              }
+            >
+              <option value="classic">Classic</option>
+              <option value="chime">Chime</option>
+              <option value="pulse">Pulse</option>
+            </select>
+          </label>
+          <button className="secondary-button" type="button" onClick={requestNotifications}>
+            <Bell size={17} aria-hidden="true" />
+            <span>
+              {notificationState === "granted"
+                ? "Notifications on"
+                : "Enable notifications"}
+            </span>
+          </button>
+        </div>
+      </aside>
     </div>
+  );
+}
+
+function WidgetTools({
+  children,
+  label,
+  targetId,
+}: {
+  children: ReactNode;
+  label: string;
+  targetId: string;
+}) {
+  return (
+    <div className="panel-tools">
+      <FullscreenButton label={label} targetId={targetId} />
+      {children}
+    </div>
+  );
+}
+
+function FullscreenButton({ label, targetId }: { label: string; targetId: string }) {
+  return (
+    <button
+      className="icon-button fullscreen-button"
+      type="button"
+      aria-label={`Open ${label} full screen`}
+      title="Full screen"
+      onClick={() => toggleFullscreen(targetId)}
+    >
+      <Maximize2 size={17} aria-hidden="true" />
+    </button>
   );
 }
 
@@ -1142,6 +1428,116 @@ function normalizeTheme(theme: unknown): ThemeId {
   return themePresets.some((preset) => preset.id === theme)
     ? (theme as ThemeId)
     : "classic";
+}
+
+function normalizeFont(font: unknown): FontId {
+  return fontOptions.some((option) => option.id === font) ? (font as FontId) : "system";
+}
+
+function toggleFullscreen(targetId: string) {
+  const element = document.getElementById(targetId);
+
+  if (!element) {
+    return;
+  }
+
+  if (document.fullscreenElement === element || element.classList.contains("pseudo-fullscreen")) {
+    disablePseudoFullscreen(element);
+
+    if (document.fullscreenElement === element) {
+      void document.exitFullscreen();
+    }
+
+    return;
+  }
+
+  if (document.fullscreenElement) {
+    void document.exitFullscreen().then(() => enableFullscreen(element));
+    return;
+  }
+
+  enableFullscreen(element);
+}
+
+function enableFullscreen(element: HTMLElement) {
+  enablePseudoFullscreen(element);
+
+  if (!element.requestFullscreen) {
+    return;
+  }
+
+  void element.requestFullscreen().catch(() => undefined);
+}
+
+function enablePseudoFullscreen(element: HTMLElement) {
+  element.classList.add("pseudo-fullscreen");
+  document.body.classList.add("fullscreen-lock");
+  document.addEventListener("keydown", handlePseudoFullscreenKeydown);
+  document.addEventListener("fullscreenchange", handleFullscreenChange);
+}
+
+function disablePseudoFullscreen(element: Element) {
+  element.classList.remove("pseudo-fullscreen");
+
+  if (!document.querySelector(".pseudo-fullscreen")) {
+    document.body.classList.remove("fullscreen-lock");
+    document.removeEventListener("keydown", handlePseudoFullscreenKeydown);
+    document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  }
+}
+
+function handlePseudoFullscreenKeydown(event: KeyboardEvent) {
+  if (event.key !== "Escape") {
+    return;
+  }
+
+  document.querySelectorAll(".pseudo-fullscreen").forEach(disablePseudoFullscreen);
+}
+
+function handleFullscreenChange() {
+  if (document.fullscreenElement) {
+    return;
+  }
+
+  document.querySelectorAll(".pseudo-fullscreen").forEach(disablePseudoFullscreen);
+  document.removeEventListener("fullscreenchange", handleFullscreenChange);
+}
+
+function getCityMatches(query: string) {
+  const normalizedQuery = query.trim().toLowerCase();
+
+  if (!normalizedQuery) {
+    return defaultCitySuggestionIds
+      .map((id) => cityOptions.find((city) => city.id === id))
+      .filter((city): city is WorldClockItem => Boolean(city));
+  }
+
+  return cityOptions
+    .filter((city) => citySearchText(city).includes(normalizedQuery))
+    .slice(0, 10);
+}
+
+function findCityFromQuery(query: string) {
+  const normalizedQuery = query.trim().toLowerCase();
+
+  if (!normalizedQuery) {
+    return undefined;
+  }
+
+  return (
+    cityOptions.find((city) => formatCityOption(city).toLowerCase() === normalizedQuery) ??
+    cityOptions.find((city) => city.label.toLowerCase() === normalizedQuery) ??
+    cityOptions.find((city) => citySearchText(city).startsWith(normalizedQuery)) ??
+    cityOptions.find((city) => citySearchText(city).includes(normalizedQuery))
+  );
+}
+
+function formatCityOption(city: WorldClockItem) {
+  return `${city.label}, ${city.country} - ${city.continent}`;
+}
+
+function citySearchText(city: WorldClockItem) {
+  return `${city.label} ${city.country} ${city.continent} ${city.timeZone}`.toLowerCase();
 }
 
 function nextHourValue() {

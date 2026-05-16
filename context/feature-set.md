@@ -4,15 +4,18 @@ Use this file as the source of truth for feature planning.
 
 ## Core Clock Tools
 
-- Clock: digital time, analog dial, date, seconds toggle, 12/24-hour mode.
-- Alarm: multiple alarms, labels, enabled state, daily repeat, snooze, notification and sound.
-- Timer: custom duration, presets, progress ring, pause/resume/reset, sound and notification on completion.
-- Stopwatch: elapsed time, laps, split times, pause/resume/reset.
-- World Clock: add/remove major cities, display timezone offset, local date, and current time.
+- Clock: digital time, analog dial, date, seconds toggle, 12/24-hour mode, fullscreen display.
+- Alarm: multiple alarms, labels, enabled state, daily repeat, snooze, notification and sound, fullscreen add/list widgets.
+- Timer: custom duration, presets, progress ring, pause/resume/reset, sound and notification on completion, fullscreen timer and preset widgets.
+- Stopwatch: elapsed time, laps, split times, pause/resume/reset, fullscreen elapsed and lap widgets.
+- World Clock: add/remove cities across every continent, typeahead search, timezone offset, local date, current time, fullscreen add/list widgets.
 
 ## Personalization
 
 - Theme selection persists locally.
+- Font selection persists locally.
+- Settings are available in a side drawer.
+- Fullscreen is available from each primary widget header.
 - Themes target both mood and broad audience:
   - Classic for general use
   - Midnight for low-light focus
@@ -20,6 +23,12 @@ Use this file as the source of truth for feature planning.
   - Playful for kids
   - Neon for teens
   - High Contrast for seniors/readability
+- Font options:
+  - System
+  - Serif
+  - Rounded
+  - Mono
+  - Readable
 
 ## Monetization
 

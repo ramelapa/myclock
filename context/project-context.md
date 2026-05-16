@@ -21,11 +21,20 @@ The app should prioritize useful clock workflows over marketing pages. The first
 - Live digital clock with optional seconds
 - Analog clock face
 - 12-hour and 24-hour display modes
+- Fullscreen control on primary widgets and tool panels
+- Settings side drawer for display and alert preferences
+- Font preferences:
+  - System
+  - Serif
+  - Rounded
+  - Mono
+  - Readable
 - Multiple saved alarms with labels
 - Alarm enable/disable, daily repeat, one-time snooze, alert sounds, and browser notifications
 - Countdown timer with custom hours/minutes/seconds, presets, progress ring, pause, resume, and reset
 - Stopwatch with start, pause, reset, lap, and split tracking
-- World clocks for common cities and time zones
+- World clocks for cities across Africa, Asia, Europe, North America, South America, Oceania, and Antarctica
+- Typeahead city search by city, country, continent, or time zone
 - Mood and age-group themes:
   - Classic: clear, everyone
   - Midnight: focused, adults
